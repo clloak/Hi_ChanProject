@@ -1,34 +1,34 @@
-/**
- * represents a highway location found in the prepared lookup file.
- * a lookup entry connects a geohash to a route, state, and milepost.
- */
+/** One highway feature associated with a geohash cell. */
 public class HighwaySegment {
+    private final String route, stateFips, state, geohash;
+    private final double beginMilepost, endMilepost, representativeMilepost;
 
-    private String route;
-    private String state;
-    private double milepost;
-    private String geohash;
-
-    public HighwaySegment(String route, String state, double milepost, String geohash) {
+    public HighwaySegment(String route, String stateFips, String state,
+                          double beginMilepost, double endMilepost,
+                          double representativeMilepost, String geohash) {
         this.route = route;
-        this.state = state;
-        this.milepost = milepost;
+        this.stateFips = stateFips;
+        this.state = state == null || state.isBlank() ? stateFromFips(stateFips) : state;
+        this.beginMilepost = beginMilepost;
+        this.endMilepost = endMilepost;
+        this.representativeMilepost = representativeMilepost;
         this.geohash = geohash;
     }
-
-    public String getRoute() {
-        return route;
+    public String getRoute() { return route; }
+    public String getStateFips() { return stateFips; }
+    public String getState() { return state; }
+    public double getBeginMilepost() { return beginMilepost; }
+    public double getEndMilepost() { return endMilepost; }
+    public double getRepresentativeMilepost() { return representativeMilepost; }
+    public String getGeohash() { return geohash; }
+    public int getChannelNumber() {
+        return Math.max(10, (int) Math.ceil(representativeMilepost / 10.0) * 10);
     }
-
-    public String getState() {
-        return state;
-    }
-
-    public double getMilepost() {
-        return milepost;
-    }
-
-    public String getGeohash() {
-        return geohash;
+    public static String stateFromFips(String fips) {
+        if (fips == null) return "??";
+        String value = fips.trim().replaceFirst("^0+(?!$)", "");
+        if ("16".equals(value)) return "ID";
+        if ("53".equals(value)) return "WA";
+        return "??";
     }
 }
