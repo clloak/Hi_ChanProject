@@ -1,39 +1,21 @@
-/**
- * represents one row from the input GPS log.
- * the original fields are kept so the output file can preserve the GPS data
- * and append the Channel ID as a new final column.
- */
+/** One GPS CSV record, retaining the original fields for the output file. */
 public class GPSRecord {
-
-    private double latitude;
-    private double longitude;
-    private String[] originalFields;
-    private String channelId;
+    private final double latitude;
+    private final double longitude;
+    private final String[] originalFields;
+    private String channelId = "";
 
     public GPSRecord(double latitude, double longitude, String[] originalFields) {
         this.latitude = latitude;
         this.longitude = longitude;
-        this.originalFields = originalFields;
-        this.channelId = "";
+        this.originalFields = originalFields.clone();
     }
 
-    public double getLatitude() {
-        return latitude;
-    }
-
-    public double getLongitude() {
-        return longitude;
-    }
-
-    public String[] getOriginalFields() {
-        return originalFields;
-    }
-
-    public String getChannelId() {
-        return channelId;
-    }
-
+    public double getLatitude() { return latitude; }
+    public double getLongitude() { return longitude; }
+    public String[] getOriginalFields() { return originalFields.clone(); }
+    public String getChannelId() { return channelId; }
     public void setChannelId(String channelId) {
-        this.channelId = channelId;
+        this.channelId = channelId == null ? "" : channelId;
     }
 }

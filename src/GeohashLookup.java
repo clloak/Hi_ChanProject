@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -57,11 +56,24 @@ public class GeohashLookup {
     }
 
     public List<HighwaySegment> findCandidates(double latitude, double longitude) {
+        String exactHash = GeoHash.encode(latitude, longitude, GEOHASH_PRECISION);
+        List<HighwaySegment> exactMatches = segmentsByHash.get(exactHash);
+
+        // An exact cell match is more useful than a nearby cell match.
+        if (exactMatches != null && !exactMatches.isEmpty()) {
+            return new ArrayList<>(exactMatches);
+        }
+
         Set<String> hashes = GeoHash.neighbors(latitude, longitude, GEOHASH_PRECISION);
         List<HighwaySegment> result = new ArrayList<>();
         for (String hash : hashes) {
+            if (hash.equals(exactHash)) {
+                continue;
+            }
             List<HighwaySegment> matches = segmentsByHash.get(hash);
-            if (matches != null) result.addAll(matches);
+            if (matches != null) {
+                result.addAll(matches);
+            }
         }
         return result;
     }
@@ -69,17 +81,60 @@ public class GeohashLookup {
     /** Selects the candidate nearest the previous milepost, preferring the same state. */
     public HighwaySegment findBest(double latitude, double longitude, HighwaySegment previous) {
         List<HighwaySegment> candidates = findCandidates(latitude, longitude);
-        if (candidates.isEmpty()) return null;
-        if (previous == null) return candidates.get(0);
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        if (previous == null) {
+            return chooseMiddleCandidate(candidates);
+        }
+
         HighwaySegment best = null;
         double bestScore = Double.MAX_VALUE;
         for (HighwaySegment candidate : candidates) {
-            double score = Math.abs(candidate.getRepresentativeMilepost() - previous.getRepresentativeMilepost());
-            if (!candidate.getState().equals(previous.getState())) score += 1000.0;
-            if (!candidate.getRoute().equals(previous.getRoute())) score += 10000.0;
-            if (score < bestScore) { bestScore = score; best = candidate; }
+            double score = Math.abs(candidate.getRepresentativeMilepost()
+                    - previous.getRepresentativeMilepost());
+            if (!candidate.getState().equals(previous.getState())) {
+                score += 1000.0;
+            }
+            if (!candidate.getRoute().equals(previous.getRoute())) {
+                score += 10000.0;
+            }
+            if (score < bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
         }
         return best;
+    }
+
+    /**
+     * When the first record has multiple matches, choose the middle milepost
+     * from the most common state instead of relying on CSV row order.
+     */
+    private HighwaySegment chooseMiddleCandidate(List<HighwaySegment> candidates) {
+        Map<String, Integer> stateCounts = new HashMap<>();
+        String selectedState = candidates.get(0).getState();
+        int largestCount = 0;
+
+        for (HighwaySegment candidate : candidates) {
+            int count = stateCounts.getOrDefault(candidate.getState(), 0) + 1;
+            stateCounts.put(candidate.getState(), count);
+            if (count > largestCount) {
+                largestCount = count;
+                selectedState = candidate.getState();
+            }
+        }
+
+        List<HighwaySegment> sameState = new ArrayList<>();
+        for (HighwaySegment candidate : candidates) {
+            if (candidate.getState().equals(selectedState)) {
+                sameState.add(candidate);
+            }
+        }
+        sameState.sort((a, b) -> Double.compare(
+                a.getRepresentativeMilepost(), b.getRepresentativeMilepost()));
+        return sameState.get(sameState.size() / 2);
     }
 
     private static String get(List<String> values, Map<String, Integer> columns, String name) {
